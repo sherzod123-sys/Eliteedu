@@ -1,0 +1,46 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Statistika | {{ site_title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-8">
+  <h1 class="text-4xl font-bold mb-10 text-gray-800">Umumiy Statistika</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-8 rounded-2xl shadow-xl">
+      <p class="text-xl opacity-90">Jami foydalanuvchilar</p>
+      <p class="text-5xl font-bold mt-4">{{ total_users }}</p>
+    </div>
+
+    <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-8 rounded-2xl shadow-xl">
+      <p class="text-xl opacity-90">Talabalar</p>
+      <p class="text-5xl font-bold mt-4">{{ total_students }}</p>
+    </div>
+
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-8 rounded-2xl shadow-xl">
+      <p class="text-xl opacity-90">O‘qituvchilar</p>
+      <p class="text-5xl font-bold mt-4">{{ total_teachers }}</p>
+    </div>
+
+    <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-8 rounded-2xl shadow-xl">
+      <p class="text-xl opacity-90">Jami kurslar</p>
+      <p class="text-5xl font-bold mt-4">{{ total_courses }}</p>
+    </div>
+
+    <div class="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-8 rounded-2xl shadow-xl">
+      <p class="text-xl opacity-90">Nashr etilgan kurslar</p>
+      <p class="text-5xl font-bold mt-4">{{ published_courses }}</p>
+    </div>
+
+    <div class="bg-gradient-to-br from-pink-500 to-pink-600 text-white p-8 rounded-2xl shadow-xl">
+      <p class="text-xl opacity-90">Yozilishlar soni</p>
+      <p class="text-5xl font-bold mt-4">{{ total_enrollments }}</p>
+    </div>
+  </div>
+
+  <div class="mt-12 text-center">
+    <a href="{% url 'admin:index' %}" class="bg-white text-indigo-600 px-8 py-4 rounded-xl font-bold hover:shadow-lg transition">
+      Boshqaruv paneliga qaytish
+    </a>
+  </div>
+</div>
+{% endblock %}
