@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xodimlar Tizimi - Bosh sahifa</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 40px 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            background: #667eea;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 50px;
+            font-weight: bold;
+        }
+        h1 { color: #667eea; margin-bottom: 10px; }
+        p { margin: 15px 0; font-size: 18px; color: #555; }
+        .user-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+            font-size: 17px;
+            line-height: 1.8;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            margin: 10px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .btn:hover { background: #5a6fd8; transform: translateY(-3px); }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c6392a; }
+        footer {
+            margin-top: 40px;
+            color: #aaa;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">XT</div>
+        <h1>Xush kelibsiz!</h1>
+        <p>Siz muvaffaqiyatli kirdingiz</p>
+
+        <div class="user-info">
+            <strong>Telefon:</strong> <span id="phone">+998999887766</span><br>
+            <strong>Ism-familiya:</strong> <span id="full_name">Xodim Test</span><br>
+            <strong>Lavozimi:</strong> <span id="role">Xodim</span><br>
+            <strong>Kirish vaqti:</strong> <span id="time"></span>
+        </div>
+
+        <a href="/admin/" class="btn" target="_blank">Admin panel</a>
+        <a href="/swagger/" class="btn" target="_blank">API hujjatlari</a>
+        <a href="#" class="btn btn-danger" onclick="logout()">Chiqish</a>
+
+        <footer>
+            © 2025 EduPlatform | Xodimlar tizimi v1.0
+        </footer>
+    </div>
+
+    <script>
+        // Tokenni localStorage dan olish
+        const accessToken = localStorage.getItem('access_token');
+        
+        if (!accessToken) {
+            alert('Siz tizimga kirmagansiz!');
+            window.location.href = '/';
+        }
+
+        // User ma'lumotlarini yuklash
+        fetch('/api/users/me/', {
+            headers: { 'Authorization': 'Bearer ' + accessToken }
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('phone').textContent = data.phone || 'Noma\'lum';
+            document.getElementById('full_name').textContent = 
+                (data.first_name + ' ' + data.last_name).trim() || 'Xodim';
+            document.getElementById('role').textContent = 
+                data.role === 'employee' ? 'Xodim' : 
+                data.role === 'admin' ? 'Administrator' : data.role;
+        })
+        .catch(() => {
+            alert('Ma\'lumot yuklanmadi');
+        });
+
+        // Vaqt
+        document.getElementById('time').textContent = new Date().toLocaleString('uz-UZ');
+
+        // Chiqish funksiyasi
+        function logout() {
+            localStorage.clear();
+            alert('Tizimdan chiqdingiz!');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
