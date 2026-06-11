@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { create } from 'zustand';
 
 const useAuthStore = create((set) => ({
@@ -26,3 +27,7 @@ const useAuthStore = create((set) => ({
 }));
 
 export default useAuthStore;
+=======
+// Bu fayl faqat export qilish uchun
+export { useAuthStore } from '../services/authService';
+>>>>>>> ad8d8b2732545b73f5a0ee23a9db7d28fd05bf61
