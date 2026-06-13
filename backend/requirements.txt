@@ -26,3 +26,4 @@ daphne
 django-jazzmin
 daphne
 whitenoise
+setuptools<81
