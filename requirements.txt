@@ -23,3 +23,5 @@ requests==2.31.0
 python-decouple==3.8
 python-dotenv
 daphne
+django-jazzmin
+daphne
