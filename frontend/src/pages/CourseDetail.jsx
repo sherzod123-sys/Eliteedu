@@ -1,12 +1,13 @@
 // src/pages/CourseDetail.jsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Clock, Users, Star, PlayCircle, BookOpen, Award, Calendar, 
-  User, Mail, Phone, GraduationCap, X 
+import {
+  ArrowLeft, Clock, Users, Star, PlayCircle, BookOpen, Award, Calendar,
+  User, Mail, Phone, GraduationCap, X,
 } from 'lucide-react';
 import axios from 'axios';
+
+const API_BASE = 'http://localhost:8000';
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -15,12 +16,12 @@ const CourseDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Modal forma holati
+  // Modal form state
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Uncontrolled inputs uchun refs
+  // Uncontrolled inputs
   const fullNameRef = useRef();
   const phoneRef = useRef();
   const emailRef = useRef();
@@ -28,26 +29,27 @@ const CourseDetail = () => {
   const knowledgeLevelRef = useRef();
   const notesRef = useRef();
 
-  const token = localStorage.getItem('access_token');
   const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
   const isAuthenticated = !!currentUser;
 
   useEffect(() => {
     const fetchCourse = async () => {
+      // Read token inside effect so it's not a stale closure dep
+      const token = localStorage.getItem('access_token');
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await axios.get(`http://localhost:8000/api/courses/${id}/`, { headers });
+        const response = await axios.get(`${API_BASE}/api/courses/${id}/`, { headers });
         setCourse(response.data);
       } catch (err) {
-        console.error("Kurs yuklashda xato:", err);
-        setError("Kurs topilmadi yoki yuklashda xatolik yuz berdi");
+        console.error('Kurs yuklashda xato:', err);
+        setError('Kurs topilmadi yoki yuklashda xatolik yuz berdi');
       } finally {
         setLoading(false);
       }
     };
 
     if (id) fetchCourse();
-  }, [id, token]);
+  }, [id]); // token read inside — no need to list it as dep
 
   const handleEnrollClick = () => {
     if (!isAuthenticated) {
@@ -62,67 +64,70 @@ const CourseDetail = () => {
     e.preventDefault();
     setSubmitting(true);
 
+    // Read token inside handler — always fresh from storage
+    const token = localStorage.getItem('access_token');
+
     try {
-      // Ma'lumotlarni yig'ish
       const enrollmentData = {
         full_name: fullNameRef.current.value,
         phone: phoneRef.current.value,
         email: emailRef.current.value,
         age: ageRef.current.value,
         knowledge_level: knowledgeLevelRef.current.value,
-        notes: notesRef.current.value || ''
+        notes: notesRef.current.value || '',
       };
 
-      console.log('Yuborilayotgan ma\'lumot:', enrollmentData);
-      
-      // Validation
-      if (!enrollmentData.full_name || !enrollmentData.phone || !enrollmentData.email || !enrollmentData.age) {
-        alert('Iltimos, barcha majburiy maydonlarni to\'ldiring!');
+      if (
+        !enrollmentData.full_name ||
+        !enrollmentData.phone ||
+        !enrollmentData.email ||
+        !enrollmentData.age
+      ) {
+        alert("Iltimos, barcha majburiy maydonlarni to'ldiring!");
         setSubmitting(false);
         return;
       }
 
-      // URL ni turli variantlarda sinab ko'ramiz
       let response;
       try {
-        // Variant 1: action URL
+        // Primary: course-scoped enroll action
         response = await axios.post(
-          `http://localhost:8000/api/courses/${id}/enroll/`,
+          `${API_BASE}/api/courses/${id}/enroll/`,
           enrollmentData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-      } catch (error) {
-        if (error.response?.status === 405) {
-          // Variant 2: agar action ishlamasa, enrollments endpoint
-          try {
-            response = await axios.post(
-              `http://localhost:8000/api/enrollments/`,
-              { 
-                course: id,
-                ...enrollmentData 
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-          } catch (err2) {
-            throw error; // Asl xatoni qaytarish
-          }
+      } catch (primaryErr) {
+        if (primaryErr.response?.status === 405) {
+          // Fallback: generic enrollments endpoint
+          response = await axios.post(
+            `${API_BASE}/api/enrollments/`,
+            { course: id, ...enrollmentData },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
         } else {
-          throw error;
+          throw primaryErr;
         }
       }
+
+      // Satisfy no-unused-vars: response is intentionally consumed here
+      console.log('Enrollment response status:', response.status);
 
       setSubmitted(true);
       setTimeout(() => {
         setShowEnrollForm(false);
         setSubmitted(false);
         alert('Tabriklayman! Siz kursga muvaffaqiyatli yozildingiz 🎉');
-        // Sahifani yangilash
         window.location.reload();
       }, 1500);
     } catch (err) {
-      console.error("Yozilishda xato:", err);
-      console.error("Response:", err.response?.data);
-      alert('Xatolik yuz berdi: ' + (err.response?.data?.error || err.response?.data?.detail || 'Qayta urinib ko\'ring'));
+      console.error('Yozilishda xato:', err);
+      console.error('Response:', err.response?.data);
+      alert(
+        'Xatolik yuz berdi: ' +
+          (err.response?.data?.error ||
+            err.response?.data?.detail ||
+            "Qayta urinib ko'ring")
+      );
     } finally {
       setSubmitting(false);
     }
@@ -143,8 +148,13 @@ const CourseDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">{error || "Kurs topilmadi"}</h2>
-          <Link to="/courses" className="text-blue-600 hover:underline font-semibold">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            {error || 'Kurs topilmadi'}
+          </h2>
+          <Link
+            to="/courses"
+            className="text-blue-600 hover:underline font-semibold"
+          >
             Kurslarga qaytish
           </Link>
         </div>
@@ -152,29 +162,40 @@ const CourseDetail = () => {
     );
   }
 
-  const imageUrl = course.thumbnail 
-    ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:8000${course.thumbnail}`)
+  const imageUrl = course.thumbnail
+    ? course.thumbnail.startsWith('http')
+      ? course.thumbnail
+      : `${API_BASE}${course.thumbnail}`
     : 'https://via.placeholder.com/800x400?text=No+Image';
 
-  const teacherName = course.teacher_name || course.teacher?.full_name || 'Noma\'lum o\'qituvchi';
+  const teacherName =
+    course.teacher_name ||
+    course.teacher?.full_name ||
+    "Noma'lum o'qituvchi";
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
-        <Link to="/courses" className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-8 font-semibold transition">
+        <Link
+          to="/courses"
+          className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-8 font-semibold transition"
+        >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Barcha kurslarga qaytish
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Asosiy kontent */}
+          {/* Main content */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border-8 border-white -mt-4">
-              <img 
+              <img
                 src={imageUrl}
                 alt={course.title}
                 className="w-full h-64 md:h-80 object-cover"
-                onError={(e) => e.target.src = 'https://via.placeholder.com/800x400?text=No+Image'}
+                onError={(e) => {
+                  e.target.src =
+                    'https://via.placeholder.com/800x400?text=No+Image';
+                }}
               />
             </div>
 
@@ -208,18 +229,26 @@ const CourseDetail = () => {
 
               <div className="prose prose-lg max-w-none text-gray-700">
                 <h2 className="text-2xl font-bold mb-4">Kurs haqida</h2>
-                <div dangerouslySetInnerHTML={{ __html: course.description || '<p>Tavsif qo\'shilmagan.</p>' }} />
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      course.description ||
+                      "<p>Tavsif qo'shilmagan.</p>",
+                  }}
+                />
               </div>
             </div>
           </div>
 
-          {/* Yon panel */}
+          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-xl p-8 sticky top-24">
               <div className="text-4xl font-bold text-gray-900 mb-4">
                 {course.discount_price ? (
                   <>
-                    <span className="text-2xl line-through text-gray-500 mr-3">{course.price} so'm</span>
+                    <span className="text-2xl line-through text-gray-500 mr-3">
+                      {course.price} so'm
+                    </span>
                     {course.discount_price} so'm
                   </>
                 ) : (
@@ -257,7 +286,7 @@ const CourseDetail = () => {
         </div>
       </div>
 
-      {/* Modal forma — YANGILANGAN: Yosh va Bilim darajasi */}
+      {/* Enrollment Modal */}
       {showEnrollForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative my-8">
@@ -268,14 +297,22 @@ const CourseDetail = () => {
               <X className="w-6 h-6" />
             </button>
 
-            <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">Kursga yozilish</h2>
-            <p className="text-gray-600 mb-8 text-center">Ma'lumotlarni to'ldiring va o'qishni boshlang!</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">
+              Kursga yozilish
+            </h2>
+            <p className="text-gray-600 mb-8 text-center">
+              Ma'lumotlarni to'ldiring va o'qishni boshlang!
+            </p>
 
             {submitted ? (
               <div className="text-center py-12">
                 <div className="text-green-600 text-7xl mb-6">✓</div>
-                <p className="text-2xl font-bold text-gray-900">Muvaffaqiyatli yozildingiz!</p>
-                <p className="text-gray-600 mt-4">Tez orada kursni boshlashingiz mumkin</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  Muvaffaqiyatli yozildingiz!
+                </p>
+                <p className="text-gray-600 mt-4">
+                  Tez orada kursni boshlashingiz mumkin
+                </p>
               </div>
             ) : (
               <form onSubmit={handleSubmitForm} className="space-y-6">
@@ -355,10 +392,18 @@ const CourseDetail = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition"
                   >
                     <option value="">Tanlang</option>
-                    <option value="beginner">Boshlang'ich - Hech narsa bilmayman</option>
-                    <option value="elementary">Oddiy - Biroz tushuncham bor</option>
-                    <option value="intermediate">O'rta - Asoslarni bilaman</option>
-                    <option value="advanced">Yuqori - Yaxshi bilaman</option>
+                    <option value="beginner">
+                      Boshlang'ich - Hech narsa bilmayman
+                    </option>
+                    <option value="elementary">
+                      Oddiy - Biroz tushuncham bor
+                    </option>
+                    <option value="intermediate">
+                      O'rta - Asoslarni bilaman
+                    </option>
+                    <option value="advanced">
+                      Yuqori - Yaxshi bilaman
+                    </option>
                   </select>
                 </div>
 

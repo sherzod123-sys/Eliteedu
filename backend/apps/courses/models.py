@@ -5,6 +5,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.users.models import User  # User modelini toʻgʻri import qildik
+from django.conf import settings
 
 
 class Category(models.Model):
@@ -292,17 +293,65 @@ class Review(models.Model):
         return f"{self.student} — {self.course} — {self.rating}⭐"
 
 
-class Enrollment(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments', verbose_name=_("Foydalanuvchi"))
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments', verbose_name=_("Kurs"))
-    enrolled_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Yozilgan sana"))
-    progress = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name=_("Jarayon (%)"))
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Tugallangan sana"))
+class Group(models.Model):
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='groups',
+        verbose_name=_("Kurs")
+    )
+    name = models.CharField(max_length=200, verbose_name=_("Guruh nomi"))
+    start_date = models.DateField(null=True, blank=True, verbose_name=_("Boshlanish sanasi"))
+    end_date = models.DateField(null=True, blank=True, verbose_name=_("Tugash sanasi"))
+    max_students = models.PositiveIntegerField(default=30, verbose_name=_("Maksimal talabalar"))
+    is_active = models.BooleanField(default=True, verbose_name=_("Faol"))
 
     class Meta:
-        unique_together = ['user', 'course']
-        verbose_name = _("Yozilish")
-        verbose_name_plural = _("Yozilishlar")
+        verbose_name = _("Guruh")
+        verbose_name_plural = _("Guruhlar")
+        ordering = ['-start_date']
 
     def __str__(self):
-        return f"{self.user} — {self.course}"
+        return f"{self.course.title} — {self.name}"
+
+class Enrollment(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='enrollments'
+    )
+    course = models.ForeignKey(
+        'Course', 
+        on_delete=models.CASCADE, 
+        related_name='enrollments'
+    )
+    
+    # ← BU YERNI O‘ZGARTIRAMIZ
+    group = models.ForeignKey(
+        'Group', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='enrollments'
+    )
+
+    full_name = models.CharField(max_length=255, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    age = models.PositiveIntegerField(null=True, blank=True)
+    knowledge_level = models.CharField(max_length=50, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20, 
+        choices=[('active', 'Active'), ('completed', 'Completed'), ('dropped', 'Dropped')],
+        default='active'
+    )
+
+    class Meta:
+        unique_together = ('user', 'course')
+        ordering = ['-enrolled_at']
+
+    def __str__(self):
+        return f"{self.user} - {self.course}"

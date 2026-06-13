@@ -100,8 +100,8 @@ class User(AbstractUser):
         blank=True,
         default=''
     )
-    
-    birth_date = models.DateField(
+
+    birth_date = models.DateField(          # <--- Bu maydonni qo'shing
         _('Tug\'ilgan sana'),
         null=True,
         blank=True
@@ -259,7 +259,7 @@ class User(AbstractUser):
     @property
     def age(self):
         """Yoshni hisoblash"""
-        if self.birth_date:
+        if hasattr(self, 'birth_date') and self.birth_date:   # xavfsiz tekshirish
             from datetime import date
             today = date.today()
             return today.year - self.birth_date.year - (

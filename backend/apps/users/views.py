@@ -1,4 +1,4 @@
-# apps/users/views.py - REGISTER VIEW QO'SHILGAN
+# apps/users/views.py - TO'LIQ KOD
 
 from rest_framework import viewsets, filters, status, generics, mixins
 from rest_framework.decorators import action
@@ -8,6 +8,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count, Avg
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 import logging
 
 from rest_framework import mixins 
@@ -19,37 +21,65 @@ from rest_framework import serializers
 from rest_framework import exceptions
 from django.contrib.auth import authenticate
 from rest_framework.permissions import BasePermission
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.db.models import Count, Q
+from apps.courses.models import StudentProgress, QuizAttempt, Lesson
+
 
 logger = logging.getLogger(__name__)
 
 from .models import User
-from .serializers import (RegisterSerializer, UserProfileSerializer, 
-                          StudentLoginSerializer, TeacherLoginSerializer) 
+from .serializers import (
+    RegisterSerializer, UserProfileSerializer, 
+    StudentLoginSerializer, TeacherLoginSerializer,
+    UserSerializer, UserDetailSerializer, 
+    StudentProfileSerializer, TeacherProfileSerializer, 
+    UserRegisterSerializer
+) 
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from .models import StudentProfile, TeacherProfile
-from .serializers import (
-    UserSerializer, UserDetailSerializer, StudentProfileSerializer,
-    TeacherProfileSerializer, UserRegisterSerializer
-)
 from rest_framework.permissions import IsAdminUser
 
 User = get_user_model()
 
 
 # =============================================================================
-# REGISTER VIEW - QO'SHILDI
+# CUSTOM PERMISSIONS
 # =============================================================================
 
+class IsOwnerOrAdmin(permissions.BasePermission):
+    """Faqat egasi yoki admin ruxsat etiladi"""
+    def has_object_permission(self, request, view, obj):
+        return request.user == obj or request.user.role == 'admin'
+
+
+class IsTeacherOrAdmin(BasePermission):
+    """Faqat o'qituvchi yoki adminlarga ruxsat berish"""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.role in ['teacher', 'admin'] or request.user.is_staff
+        )
+
+
+# =============================================================================
+# REGISTER VIEW - CSRF EXEMPT
+# =============================================================================
+
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.GenericAPIView):
     """
     Talabalar uchun ro'yxatdan o'tish (phone bilan)
+    POST /api/users/register/
     """
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
         logger.info(f"📝 Registration attempt")
@@ -92,9 +122,16 @@ class RegisterView(generics.GenericAPIView):
             )
 
 
+# =============================================================================
+# PROFILE VIEW
+# =============================================================================
+
 class ProfileView(generics.RetrieveUpdateAPIView):
     """
     User profili - GET va PUT/PATCH
+    GET /api/users/profile/
+    PUT /api/users/profile/
+    PATCH /api/users/profile/
     """
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
@@ -103,9 +140,14 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+# =============================================================================
+# LOGOUT VIEW
+# =============================================================================
+
 class LogoutView(generics.GenericAPIView):
     """
     Logout - refresh token ni blacklist qilish
+    POST /api/users/logout/
     """
     permission_classes = [IsAuthenticated]
     
@@ -208,17 +250,45 @@ class UsernameLoginSerializer(serializers.Serializer):
 
 
 # =============================================================================
-# LOGIN VIEWS
+# LOGIN VIEWS - CSRF EXEMPT
 # =============================================================================
 
+@method_decorator(csrf_exempt, name='dispatch')
 class TeacherLoginView(generics.GenericAPIView):
     """
     O'qituvchilar uchun - USERNAME bilan login
+    POST /api/users/teacher-login/
+    
+    Request body:
+    {
+        "username": "teacher_username",
+        "password": "teacher_password"
+    }
+    
+    Response (success):
+    {
+        "refresh": "refresh_token_here",
+        "access": "access_token_here",
+        "user": {
+            "id": 1,
+            "username": "teacher1",
+            "phone": "+998901234567",
+            "full_name": "Teacher Name",
+            "role": "teacher",
+            "email": "teacher@example.com"
+        }
+    }
+    
+    Response (error):
+    {
+        "error": "Username yoki parol noto'g'ri"
+    }
     """
     serializer_class = UsernameLoginSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):  # ✅ CORRECT - Indented inside class
         logger.info(f"👨‍🏫 Teacher login attempt")
         logger.info(f"📦 Request data: {request.data}")
         
@@ -276,15 +346,22 @@ class TeacherLoginView(generics.GenericAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+# apps/users/views.py
 
+# ... (boshqa kodlar) ...
+
+# ✅ TO'G'RI VERSIYA
+@method_decorator(csrf_exempt, name='dispatch')
 class StudentLoginView(generics.GenericAPIView):
     """
     Talabalar uchun - PHONE bilan login
+    POST /api/users/auth/student-login/
     """
     serializer_class = PhoneLoginSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):  # ← 4 ta space indent (class ichida!)
         logger.info(f"👨‍🎓 Student login attempt")
         logger.info(f"📦 Request data: {request.data}")
         
@@ -334,13 +411,15 @@ class StudentLoginView(generics.GenericAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class UserLoginView(generics.GenericAPIView):
     """
     Umumiy login - phone yoki username
+    POST /api/users/login/
     """
     serializer_class = PhoneLoginSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
         logger.info(f"📱 General login attempt")
@@ -396,10 +475,13 @@ class UserLoginView(generics.GenericAPIView):
 
 
 # =============================================================================
-# QOLGAN VIEWSET'LAR
+# AUTH VIEWSET
 # =============================================================================
 
 class AuthViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, GenericViewSet):
+    """
+    Auth ViewSet - register va me endpoint'lari
+    """
     queryset = User.objects.all()
     
     def get_serializer_class(self):
@@ -409,6 +491,7 @@ class AuthViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, GenericVie
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def register(self, request):
+        """Ro'yxatdan o'tish"""
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -419,6 +502,7 @@ class AuthViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, GenericVie
 
     @action(detail=False, methods=['get', 'put', 'patch'], permission_classes=[IsAuthenticated])
     def me(self, request):
+        """Joriy user profili"""
         if request.method == 'GET':
             serializer = UserProfileSerializer(request.user)
             return Response(serializer.data)
@@ -434,38 +518,14 @@ class AuthViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, GenericVie
             return Response(serializer.data)
 
 
-class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class AdminStudentViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        if not self.request.user.is_staff:
-            return User.objects.none()
-        return User.objects.filter(role='student')
-
-
-class StudentProfileViewSet(viewsets.ModelViewSet):
-    serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        return User.objects.filter(id=self.request.user.id)
-    
-    def perform_update(self, serializer):
-        serializer.save()
-
-class IsOwnerOrAdmin(permissions.BasePermission):
-    def has_object_permission(self, request, view, obj):
-        return request.user == obj or request.user.role == 'admin'
-
+# =============================================================================
+# USER VIEWSETS
+# =============================================================================
 
 class UserViewSet(viewsets.ModelViewSet):
+    """
+    User CRUD operatsiyalari
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
@@ -511,7 +571,14 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'message': f'Rol {new_role} ga o\'zgartirildi'})
 
 
+# =============================================================================
+# STUDENT PROFILE VIEWSET
+# =============================================================================
+
 class StudentProfileViewSet(viewsets.ModelViewSet):
+    """
+    Student Profile CRUD
+    """
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
     permission_classes = [IsOwnerOrAdmin]
@@ -522,7 +589,14 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         return StudentProfile.objects.filter(user=self.request.user)
 
 
+# =============================================================================
+# TEACHER PROFILE VIEWSET
+# =============================================================================
+
 class TeacherProfileViewSet(viewsets.ModelViewSet):
+    """
+    Teacher Profile CRUD
+    """
     queryset = TeacherProfile.objects.all()
     serializer_class = TeacherProfileSerializer
     permission_classes = [IsOwnerOrAdmin]
@@ -532,15 +606,20 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
             return TeacherProfile.objects.all()
         return TeacherProfile.objects.filter(user=self.request.user)
 
+
+# =============================================================================
+# ADMIN USER VIEWSET
+# =============================================================================
+
 class AdminUserViewSet(viewsets.ModelViewSet):
-    """Admin uchun foydalanuvchilarni to'liq boshqarish"""
+    """
+    Admin uchun foydalanuvchilarni to'liq boshqarish
+    """
     queryset = User.objects.all().select_related('student_profile', 'teacher_profile')
     permission_classes = [IsAdminUser]
 
     def get_serializer_class(self):
-        if self.action == 'create':
-            return AdminUserCreateSerializer
-        return AdminUserUpdateSerializer
+        return UserDetailSerializer
 
     @action(detail=True, methods=['post'])
     def add_points(self, request, pk=None):
@@ -574,35 +653,202 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         return Response({'message': 'Foydalanuvchi tasdiqlandi'})
 
 
+# =============================================================================
+# ADMIN STUDENT LIST
+# =============================================================================
+
 class AdminStudentListView(generics.ListAPIView):
-    """Admin uchun talabalar ro'yxati"""
+    """
+    Admin uchun talabalar ro'yxati
+    GET /api/users/admin/students/
+    """
     queryset = User.objects.filter(role='student').select_related('student_profile')
     serializer_class = UserProfileSerializer
     permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'full_name', 'phone', 'email']
+    ordering_fields = ['date_joined', 'full_name']
+    ordering = ['-date_joined']
 
+
+# =============================================================================
+# ADMIN TEACHER LIST
+# =============================================================================
 
 class AdminTeacherListView(generics.ListAPIView):
-    """Admin uchun o'qituvchilar ro'yxati"""
+    """
+    Admin uchun o'qituvchilar ro'yxati
+    GET /api/users/admin/teachers/
+    """
     queryset = User.objects.filter(role__in=['teacher', 'admin']).select_related('teacher_profile')
     serializer_class = UserProfileSerializer
-    permission_classes = [IsAdminUser]            
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'full_name', 'phone', 'email']
+    ordering_fields = ['date_joined', 'full_name']
+    ordering = ['-date_joined']
 
-class IsTeacherOrAdmin(BasePermission):
-    """Faqat o'qituvchi yoki adminlarga ruxsat berish"""
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and (
-            request.user.role in ['teacher', 'admin'] or request.user.is_staff
-        )
+
+# =============================================================================
+# TEACHER STUDENT LIST VIEWSET
+# =============================================================================
 
 class TeacherStudentListViewSet(viewsets.ReadOnlyModelViewSet):
     """
     O'qituvchilar uchun barcha talabalar ro'yxatini chiqaruvchi API
-    URL: /api/users/students_list/
+    GET /api/users/students_list/
     """
-    serializer_class = UserProfileSerializer # yoki UserSerializer
+    serializer_class = UserProfileSerializer
     permission_classes = [IsTeacherOrAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'full_name', 'phone', 'email']
+    ordering_fields = ['date_joined', 'full_name', 'points']
+    ordering = ['-date_joined']
 
     def get_queryset(self):
-        # Faqat 'student' rolidagi foydalanuvchilarni qaytaradi
-        return User.objects.filter(role='student').order_by('-date_joined')
+        """Faqat 'student' rolidagi foydalanuvchilarni qaytaradi"""
+        return User.objects.filter(role='student').select_related('student_profile').order_by('-date_joined')
+
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Talabalar statistikasi"""
+        queryset = self.get_queryset()
+        total_students = queryset.count()
+        active_students = queryset.filter(is_active=True).count()
+        verified_students = queryset.filter(is_verified=True).count()
+        
+        return Response({
+            'total_students': total_students,
+            'active_students': active_students,
+            'verified_students': verified_students,
+            'inactive_students': total_students - active_students,
+        })
+
+
+# =============================================================================
+# ADMIN STUDENT VIEWSET
+# =============================================================================
+
+class AdminStudentViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Admin uchun talabalar ro'yxati viewset
+    """
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
     
+    def get_queryset(self):
+        if not self.request.user.is_staff:
+            return User.objects.none()
+        return User.objects.filter(role='student').select_related('student_profile')
+
+
+# =============================================================================
+# SIMPLE STUDENT PROFILE VIEWSET
+# =============================================================================
+
+class StudentProfileViewSet(viewsets.ModelViewSet):
+    """
+    Talaba o'z profilini tahrirlash
+    """
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return User.objects.filter(id=self.request.user.id)
+    
+    def perform_update(self, serializer):
+        serializer.save()
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def leaderboard_view(request):
+    """
+    Eng yaxshi o'quvchilar reytingi
+    - Tugatilgan darslar soni
+    - O'tgan testlar soni  
+    - Topshirilgan vazifalar soni
+    - Umumiy ballar
+    """
+    from apps.users.models import User
+    
+    # Faqat studentlarni olish
+    students = User.objects.filter(role='student', is_active=True)
+    
+    leaderboard = []
+    for student in students:
+        # Tugatilgan darslar
+        completed_lessons = StudentProgress.objects.filter(
+            student=student,
+            is_completed=True
+        ).count()
+        
+        # O'tgan testlar
+        passed_tests = QuizAttempt.objects.filter(
+            student=student,
+            is_passed=True
+        ).count()
+        
+        # Topshirilgan vazifalar (assignment tipidagi darslar)
+        completed_tasks = StudentProgress.objects.filter(
+            student=student,
+            is_completed=True,
+            lesson__lesson_type='assignment'
+        ).count()
+        
+        # Umumiy faollik ballari
+        total_activity = completed_lessons + (passed_tests * 2) + (completed_tasks * 3)
+        
+        leaderboard.append({
+            'id': student.id,
+            'full_name': student.full_name or student.username,
+            'avatar': request.build_absolute_uri(student.avatar.url) if student.avatar else None,
+            'points': student.points,
+            'completed_lessons': completed_lessons,
+            'completed_tests': passed_tests,
+            'completed_tasks': completed_tasks,
+            'total_activity': total_activity
+        })
+    
+    # Eng ko'p ball to'plagan va faol o'quvchilar bilan saralash
+    leaderboard.sort(key=lambda x: (x['points'], x['total_activity']), reverse=True)
+    
+    # Faqat top 50 ni qaytarish
+    return Response({
+        'results': leaderboard[:50]
+    })        
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_search_view(request):
+    """
+    Foydalanuvchi qidirish - username yoki full_name bo'yicha
+    GET /api/users/search/?q=ali
+    """
+    q = request.query_params.get('q', '').strip()
+
+    if not q or len(q) < 2:
+        return Response({'results': []})
+
+    users = User.objects.filter(
+        Q(username__icontains=q) |
+        Q(full_name__icontains=q)
+    ).exclude(id=request.user.id).filter(is_active=True)[:20]
+
+    results = []
+    for user in users:
+        avatar_url = None
+        if user.avatar:
+            try:
+                avatar_url = request.build_absolute_uri(user.avatar.url)
+            except Exception:
+                avatar_url = None
+
+        results.append({
+            'id':        user.id,
+            'username':  user.username,
+            'full_name': user.full_name or user.username,
+            'avatar':    avatar_url,
+            'role':      user.role,
+        })
+
+    return Response({'results': results})

@@ -89,8 +89,8 @@ class AnswerAdmin(admin.ModelAdmin):
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    list_display = ('user', 'course', 'progress', 'enrolled_at')
-    list_filter = ('course', 'enrolled_at')
+    list_display = ('user', 'course', 'status', 'enrolled_at')
+    list_filter = ('course', 'status', 'enrolled_at')
     search_fields = ('user__username', 'course__title')
 
 @admin.register(StudentProgress)
