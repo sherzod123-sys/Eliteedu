@@ -1,18 +1,22 @@
-<<<<<<< HEAD
+// src/stores/authStore.js
+
 import { create } from 'zustand';
 
 const useAuthStore = create((set) => ({
   user: null,
   isAuthenticated: false,
+
   login: (userData) => {
     localStorage.setItem('user', JSON.stringify(userData.user));
     localStorage.setItem('access_token', userData.access_token);
     set({ user: userData.user, isAuthenticated: true });
   },
+
   logout: () => {
     localStorage.clear();
     set({ user: null, isAuthenticated: false });
   },
+
   loadUser: () => {
     try {
       const stored = localStorage.getItem('user');
@@ -27,7 +31,4 @@ const useAuthStore = create((set) => ({
 }));
 
 export default useAuthStore;
-=======
-// Bu fayl faqat export qilish uchun
-export { useAuthStore } from '../services/authService';
->>>>>>> ad8d8b2732545b73f5a0ee23a9db7d28fd05bf61
+
