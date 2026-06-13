@@ -34,3 +34,4 @@ frontend/dist/
 
 # macOS
 .DS_Store
+backup.sql
