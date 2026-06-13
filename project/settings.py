@@ -55,11 +55,12 @@ INSTALLED_APPS = [
 ASGI_APPLICATION = 'project.asgi.application'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Eng birinchi
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # shu qator qo'shildi
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',  # CSRF yoqildi lekin API uchun bypass qilinadi
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
