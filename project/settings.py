@@ -305,7 +305,9 @@ CSRF_COOKIE_SECURE = False         # development uchun (HTTPS emas)
 # ============================================================
 if DEBUG:
     # Development uchun yengil security
-    SECURE_SSL_REDIRECT = False
+
+    # Production uchun qattiq security
+    SECURE_SSL_REDIRECT = False  # True dan False ga o'zgartiring
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
