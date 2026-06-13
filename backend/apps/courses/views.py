@@ -14,6 +14,8 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from django.http import HttpResponse
 import csv
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from .models import (
     Category, Course, Module, Lesson, Quiz, Question, Answer,
@@ -67,10 +69,16 @@ class CourseViewSet(viewsets.ModelViewSet):
         'category', 'teacher', 'teacher__teacher_profile'
     ).prefetch_related('modules__lessons')
 
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter
+    ]
+
     filterset_fields = ['category', 'level', 'teacher']
     search_fields = ['title', 'description', 'tags']
     ordering_fields = ['created_at', 'price', 'rating', 'total_students']
+    permission_classes = [permissions.AllowAny]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -80,69 +88,41 @@ class CourseViewSet(viewsets.ModelViewSet):
         return CourseListSerializer
 
     def get_permissions(self):
-        if self.action in ['my_courses', 'enroll', 'dashboard']:
-            return [permissions.IsAuthenticated()]
-        if self.action in ['featured', 'bestsellers', 'search', 'by_category', 'curriculum']:
+        public_actions = [
+            'list', 'retrieve', 'featured',
+            'bestsellers', 'search', 'by_category', 'curriculum'
+        ]
+        protected_actions = ['my_courses', 'dashboard', 'enroll']
+
+        if self.action in public_actions:
             return [permissions.AllowAny()]
-        return super().get_permissions()
-
-    @action(detail=False, methods=['get'], url_path='my-courses')
-    def my_courses(self, request):
-        """
-        Talaba yozilgan barcha kurslar (Admin panelda qo'shilgan hamma narsa bilan).
-        """
-        user = request.user
-        # Tuzatish: status='published' filtrini qayta qo'shdik, chunki admin qo'shgan draftlarni student ko'rmasligi kerak.
-        # Agar admin qo'shganlarni darhol ko'rish kerak bo'lsa, bu filtrni olib tashlang.
-        courses = Course.objects.filter(
-            enrollments__user=user,
-            status='published'  # ← BU TUZATISH: Faqat published kurslarni ko'rsatish
-        ).select_related(
-            'category', 'teacher'
-        ).prefetch_related(
-            'modules', 
-            'modules__lessons', 
-            'modules__lessons__quiz'
-        ).distinct()
-
-        # Serializerga context berish shart, aks holda darslar ichidagi progress hisoblanmaydi
-        serializer = CourseDetailSerializer(courses, many=True, context={'request': request})
-        return Response(serializer.data)
+        if self.action in protected_actions:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated()]
 
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
-        """
-        Dashboard statistikasi - admin paneldagi o'zgarishlarni real-time aks ettiradi.
-        """
         user = request.user
-        # Talaba yozilgan kurs ID'larini yig'amiz
         enrolled_course_ids = Enrollment.objects.filter(user=user).values_list('course_id', flat=True)
-        # Tuzatish: enrolled_courses ga status filtrini qo'shdik
         enrolled_courses = Course.objects.filter(
             id__in=enrolled_course_ids,
-            status='published'  # ← BU TUZATISH: Faqat published kurslarni ko'rsatish
+            status='published'
         )
-
-        # Admin qo'shgan barcha darslar (qaysi modulga tegishli bo'lishidan qat'i nazar)
         all_lessons = Lesson.objects.filter(module__course_id__in=enrolled_course_ids)
         total_lessons_count = all_lessons.count()
-        
         completed_lessons_count = StudentProgress.objects.filter(
-            student=user, 
+            student=user,
             is_completed=True,
             lesson__in=all_lessons
         ).count()
 
-        # Har bir kurs bo'yicha progressni hisoblash
         courses_data = []
         for course in enrolled_courses:
-            # Shu kursga tegishli barcha darslar
             c_lessons = all_lessons.filter(module__course=course)
             c_total = c_lessons.count()
             c_completed = StudentProgress.objects.filter(
                 student=user, lesson__in=c_lessons, is_completed=True
             ).count()
-
             courses_data.append({
                 'id': course.id,
                 'title': course.title,
@@ -164,26 +144,23 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def featured(self, request):
-        """Featured kurslar"""
         courses = self.get_queryset().filter(is_featured=True)[:6]
         serializer = CourseListSerializer(courses, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def bestsellers(self, request):
-        """Bestseller kurslar"""
         courses = self.get_queryset().filter(is_bestseller=True)[:6]
         serializer = CourseListSerializer(courses, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """Kurslarni qidirish"""
         query = request.query_params.get('q', '')
         courses = self.get_queryset()
         if query:
             courses = courses.filter(
-                Q(title__icontains=query) | 
+                Q(title__icontains=query) |
                 Q(description__icontains=query)
             )[:12]
         serializer = CourseListSerializer(courses, many=True, context={'request': request})
@@ -191,7 +168,6 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def by_category(self, request):
-        """Kategoriya bo'yicha kurslar"""
         category_slug = request.query_params.get('category')
         courses = self.get_queryset()
         if category_slug:
@@ -201,7 +177,6 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def curriculum(self, request, pk=None):
-        """Kurs curriculum (modullar va darslar)"""
         course = self.get_object()
         modules = course.modules.all().prefetch_related(
             'lessons',
@@ -214,72 +189,62 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def enroll(self, request, pk=None):
-        """Kursga yozilish"""
         course = self.get_object()
         user = request.user
-
-        enrollment, created = Enrollment.objects.get_or_create(
-            user=user,
-            course=course
-        )
-
+        enrollment, created = Enrollment.objects.get_or_create(user=user, course=course)
         if not created:
             return Response(
                 {"detail": "Siz allaqachon bu kursga yozilgansiz"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Kurs studentlar sonini yangilash
         course.total_students = course.enrollments.count()
         course.save()
-
         return Response(
-            {
-                "detail": "Kursga muvaffaqiyatli yozildingiz",
-                "enrollment_id": enrollment.id
-            },
+            {"detail": "Kursga muvaffaqiyatli yozildingiz", "enrollment_id": enrollment.id},
             status=status.HTTP_201_CREATED
         )
 
 
-class LessonViewSet(viewsets.ReadOnlyModelViewSet):
+class LessonViewSet(viewsets.ModelViewSet):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=['POST'], url_path='complete')
     def complete(self, request, pk=None):
-        """Darsni tugatish"""
-        lesson = self.get_object()
-        student = request.user
-        
-        progress, created = StudentProgress.objects.get_or_create(
-            student=student,
-            course=lesson.module.course,
-            lesson=lesson
-        )
-        
-        if not progress.is_completed:
-            progress.is_completed = True
-            progress.completed_at = timezone.now()
-            progress.time_spent_seconds = request.data.get('time_spent', 0)
-            progress.save()
-            
-            # Ball qo'shish
-            if hasattr(student, 'points'):
-                student.points += 10
-                student.save()
-            
+        """Darsni tugallangan deb belgilash"""
+        try:
+            lesson = self.get_object()  # pk = 4 bo'ladi
+
+            # StudentProgress yaratish yoki yangilash
+            progress, created = StudentProgress.objects.get_or_create(
+                student=request.user,
+                lesson=lesson,
+                defaults={
+                    'course': lesson.module.course,
+                    'is_completed': True,
+                    'completed_at': timezone.now()
+                }
+            )
+
+            if not created:
+                progress.is_completed = True
+                progress.completed_at = timezone.now()
+                progress.save()
+
             return Response({
-                'message': 'Dars tugatildi!',
-                'points_earned': 10,
-                'is_completed': True
+                "success": True,
+                "message": "Dars muvaffaqiyatli yakunlandi!",
+                "is_completed": True,
+                "lesson_id": lesson.id
             }, status=status.HTTP_200_OK)
-        
-        return Response({
-            'message': 'Dars allaqachon tugatilgan',
-            'is_completed': True
-        }, status=status.HTTP_200_OK)
+
+        except Lesson.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Dars topilmadi"
+            }, status=status.HTTP_404_NOT_FOUND)
 
 
 class QuizViewSet(viewsets.ReadOnlyModelViewSet):
@@ -572,3 +537,48 @@ class AdminReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all().select_related('student', 'course')
     serializer_class = ReviewAdminSerializer
     permission_classes = [IsAdminUser]
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LessonCompleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, lesson_id):
+        try:
+            lesson = Lesson.objects.select_related(
+                'module', 'module__course'
+            ).get(id=lesson_id)
+
+            progress, created = StudentProgress.objects.get_or_create(
+                student=request.user,
+                lesson=lesson,
+                defaults={
+                    'course': lesson.module.course,
+                    'is_completed': True,
+                    'completed_at': timezone.now()
+                }
+            )
+
+            if not created:
+                progress.is_completed = True
+                progress.completed_at = timezone.now()
+                progress.save()
+
+            return Response({
+                "success": True,
+                "message": "Dars muvaffaqiyatli yakunlandi!",
+                "is_completed": True,
+                "lesson_id": lesson.id
+            }, status=status.HTTP_200_OK)
+
+        except Lesson.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Dars topilmadi"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

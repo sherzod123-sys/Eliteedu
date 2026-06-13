@@ -1,59 +1,105 @@
-// src/services/api.js
-
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
 
-// Axios instance
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
 });
 
-// Request interceptor — access token qo'shish
-api.interceptors.request.use(
-  (config) => {
-    const accessToken = localStorage.getItem('access_token');
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// ================= TOKEN =================
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Response interceptor — 401 bo'lganda token refresh
+// ================= REFRESH (SINGLE-FLIGHT) =================
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const subscribeTokenRefresh = (cb) => {
+  refreshSubscribers.push(cb);
+};
+
+const onRefreshed = (newToken) => {
+  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers = [];
+};
+
+const onRefreshFailed = (err) => {
+  refreshSubscribers.forEach((cb) => cb(null, err));
+  refreshSubscribers = [];
+};
+
+const doLogout = () => {
+  localStorage.clear();
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+};
+
 api.interceptors.response.use(
-  (response) => response,
+  (res) => res,
   async (error) => {
-    const originalRequest = error.config;
+    const original = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+    // Refresh endpointining o'zi 401 qaytarsa — to'g'ridan-to'g'ri logout
+    if (original?.url?.includes('/auth/token/refresh/')) {
+      isRefreshing = false;
+      onRefreshFailed(error);
+      doLogout();
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
+
+      // Agar boshqa so'rov allaqachon refresh qilayotgan bo'lsa — navbatga qo'shamiz
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((newToken, err) => {
+            if (err || !newToken) {
+              reject(error);
+              return;
+            }
+            original.headers.Authorization = `Bearer ${newToken}`;
+            resolve(api(original));
+          });
+        });
+      }
+
+      isRefreshing = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) throw new Error('Refresh token yo‘q');
+        const refresh = localStorage.getItem('refresh_token');
+        if (!refresh) throw new Error('No refresh token');
 
-        const response = await axios.post(`${API_URL}/auth/token/refresh/`, {
-          refresh: refreshToken,
-        });
+        const { data } = await axios.post(
+          `${API_URL}/auth/token/refresh/`,
+          { refresh }
+        );
 
-        const { access } = response.data;
-        localStorage.setItem('access_token', access);
+        localStorage.setItem('access_token', data.access);
+        if (data.refresh) {
+          localStorage.setItem('refresh_token', data.refresh);
+        }
 
-        originalRequest.headers.Authorization = `Bearer ${access}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Refresh ishlamasa — logout
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user'); // agar saqlagan bo'lsangiz
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+        isRefreshing = false;
+        onRefreshed(data.access);
+
+        original.headers.Authorization = `Bearer ${data.access}`;
+        return api(original);
+      } catch (e) {
+        isRefreshing = false;
+        onRefreshFailed(e);
+        doLogout();
+        return Promise.reject(e);
       }
     }
 
@@ -61,83 +107,76 @@ api.interceptors.response.use(
   }
 );
 
-// ==================== AUTH API ====================
+// ================= AUTH =================
 export const authAPI = {
-  // Talaba kirishi — telefon bilan
-  studentLogin: (credentials) =>
-    api.post('/users/student-login/', credentials),
-
-  // O'qituvchi kirishi — username yoki email bilan
-  teacherLogin: (credentials) =>
-    api.post('/users/teacher-login/', credentials),
-
-  // Ro'yxatdan o'tish (talabalar uchun)
-  register: (data) =>
-    api.post('/users/register/', data), // yoki sizda '/auth-user/register/' bo'lsa o'zgartiring
-
-  // Joriy foydalanuvchi profilini olish
-  getProfile: () =>
-    api.get('/users/me/'), // yoki '/auth-user/me/' — backendga qarab
-
-  // Profilni yangilash
-  updateProfile: (data) =>
-    api.patch('/users/me/', data),
-
-  // Chiqish (faqat local tozalash)
+  loginStudent: (data) => api.post('/users/student-login/', data),
+  loginTeacher: (data) => api.post('/users/teacher-login/', data),
+  register: (data) => api.post('/users/register/', data),
+  me: () => api.get('/users/me/'),
+  update: (data) => api.patch('/users/me/', data),
   logout: () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    localStorage.clear();
     window.location.href = '/login';
   },
 };
 
-// ==================== COURSES API ====================
+// ================= COURSES =================
 export const coursesAPI = {
-  getAll: (params = {}) => api.get('/courses/', { params }),
+  getAll: () => api.get('/courses/'),
   getById: (id) => api.get(`/courses/${id}/`),
-  getCurriculum: (id) => api.get(`/courses/${id}/curriculum/`),
+  my: () => api.get('/enrollments/'),
   enroll: (id) => api.post(`/courses/${id}/enroll/`),
-  getMyCourses: () => api.get('/courses/my-courses/'),
-  getFeatured: () => api.get('/courses/featured/'),
-  getBestsellers: () => api.get('/courses/bestsellers/'),
-  getCategories: () => api.get('/courses/categories/'),
 };
 
-// ==================== LESSONS API ====================
-export const lessonsAPI = {
-  getById: (id) => api.get(`/lessons/${id}/`),
-  complete: (id, data) => api.post(`/lessons/${id}/complete/`, data),
+// ================= CHAT (FIXED) =================
+export const chatAPI = {
+  getRooms: () => api.get('/chat/rooms/'),
+
+  getMessages: (roomId) =>
+    api.get(`/chat/rooms/${roomId}/messages/`),
+
+  // ❗ FIX: SEND ENDPOINT (ENG MUHIM)
+  sendMessage: (roomId, formData) =>
+    api.post(`/chat/rooms/${roomId}/send/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  deleteMessage: (id) =>
+    api.delete(`/chat/messages/${id}/`),
+
+  forward: (id, roomId) =>
+    api.post(`/chat/messages/${id}/forward/`, { room_id: roomId }),
+
+  react: (id, emoji) =>
+    api.post(`/chat/messages/${id}/react/`, { emoji }),
+
+  pin: (roomId, messageId) =>
+    api.post(`/chat/rooms/${roomId}/pin/`, { message_id: messageId }),
+
+  unread: () => api.get('/chat/unread/'),
 };
 
-// ==================== QUIZ API ====================
-export const quizAPI = {
-  getById: (id) => api.get(`/quizzes/${id}/`),
-  submit: (id, data) => api.post(`/quizzes/${id}/submit/`, data),
+// ================= VOICE SEND (READY FUNCTION) =================
+export const sendVoice = async (roomId, audioBlob, duration, replyToId = null) => {
+  const ext = audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
+
+  const formData = new FormData();
+  formData.append(
+    'file',
+    new File([audioBlob], `voice_${Date.now()}.${ext}`, {
+      type: audioBlob.type,
+    })
+  );
+
+  formData.append('message_type', 'voice');
+  formData.append('content', '');
+  formData.append('duration', duration);
+
+  if (replyToId) {
+    formData.append('reply_to_id', replyToId);
+  }
+
+  return await chatAPI.sendMessage(roomId, formData);
 };
 
-// ==================== TEACHER API ====================
-export const teacherAPI = {
-  getCourses: () => api.get('/teacher/courses/'),
-  getStats: () => api.get('/teacher/courses/stats/'),
-  createCourse: (data) => api.post('/teacher/courses/', data),
-  updateCourse: (id, data) => api.patch(`/teacher/courses/${id}/`, data),
-  deleteCourse: (id) => api.delete(`/teacher/courses/${id}/`),
-};
-
-// ==================== BLOG API ====================
-export const blogAPI = {
-  getAll: (params = {}) => api.get('/blog/', { params }),
-  getById: (id) => api.get(`/blog/${id}/`),
-  createPost: (data) => api.post('/blog/posts/', data),
-  updatePost: (id, data) => api.patch(`/blog/posts/${id}/`, data),
-  deletePost: (id) => api.delete(`/blog/posts/${id}/`),
-};
-
-// ==================== PROGRESS API ====================
-export const progressAPI = {
-  getDashboard: () => api.get('/progress/dashboard/'),
-};
-
-// Eksport qilish
 export default api;

@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: eduplatform_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eduplatform_db
+      POSTGRES_USER: eduuser
+      POSTGRES_PASSWORD: edupass123
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      TZ: Asia/Tashkent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - eduplatform_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduuser -d eduplatform_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: eduplatform_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redispass123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - eduplatform_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Django Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduplatform_backend
+    restart: unless-stopped
+    command: >
+      sh -c "
+        python manage.py wait_for_db &&
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=True
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=eduplatform_db
+      - DB_USER=eduuser
+      - DB_PASSWORD=edupass123
+      - REDIS_URL=redis://:redispass123@redis:6379/0
+      - CELERY_BROKER_URL=redis://:redispass123@redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - eduplatform_network
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduplatform_celery_worker
+    restart: unless-stopped
+    command: celery -A project worker -l info --concurrency=4
+    volumes:
+      - ./backend:/app
+      - media_volume:/app/media
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=True
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=eduplatform_db
+      - DB_USER=eduuser
+      - DB_PASSWORD=edupass123
+      - REDIS_URL=redis://:redispass123@redis:6379/0
+      - CELERY_BROKER_URL=redis://:redispass123@redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    networks:
+      - eduplatform_network
+
+  # Celery Beat (Scheduled Tasks)
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduplatform_celery_beat
+    restart: unless-stopped
+    command: celery -A project beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=True
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=eduplatform_db
+      - DB_USER=eduuser
+      - DB_PASSWORD=edupass123
+      - REDIS_URL=redis://:redispass123@redis:6379/0
+      - CELERY_BROKER_URL=redis://:redispass123@redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    networks:
+      - eduplatform_network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: eduplatform_frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - backend
+    networks:
+      - eduplatform_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+
+networks:
+  eduplatform_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

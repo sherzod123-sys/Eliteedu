@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,6 +19,8 @@ ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -42,14 +46,21 @@ INSTALLED_APPS = [
     'apps.notifications',
     'apps.analytics',
     'apps.chat',
+    # 'apps.admin_app',
+    
+    
+
 ]
 
+ASGI_APPLICATION = 'project.asgi.application'
+
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Eng birinchi
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # shu qator qo'shildi
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',  # CSRF yoqildi lekin API uchun bypass qilinadi
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -60,7 +71,10 @@ ROOT_URLCONF = 'project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [
+            BASE_DIR / 'templates',
+            BASE_DIR / 'frontend' / 'build',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -75,16 +89,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'project.wsgi.application'
 
+STATICFILES_DIRS = [
+    BASE_DIR / 'frontend' / 'build' / 'static',
+]
+
 # Database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'eduplatform_db'),
-        'USER': os.getenv('DB_USER', 'eduuser'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'edupass123'),
+        'NAME': os.getenv('DB_NAME', 'neondb'),
+        'USER': os.getenv('DB_USER', 'neondb_owner'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
 }
 
 # Password validation
@@ -112,7 +142,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+# STATICFILES_DIRS = []
 
 # Media files
 MEDIA_URL = '/media/'
@@ -127,13 +157,15 @@ AUTH_USER_MODEL = 'users.User'
 # ============================================================
 # DRF (Django REST Framework) CONFIGURATION
 # ============================================================
+# ============================================================
+# DRF (Django REST Framework) CONFIGURATION
+# ============================================================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT birinchi
-        'rest_framework.authentication.SessionAuthentication',        # Session ikkinchi
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Faqat JWT — Session ni o'chirdik
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # Default - hamma ruxsat
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -147,7 +179,6 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.FormParser',
         'rest_framework.parsers.MultiPartParser',
     ],
-    # CSRF exempt for API - BU MUHIM!
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
@@ -266,12 +297,27 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
+# settings.py
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8000',     # backend ham qo'shish yaxshi
+]
+
+# Qo'shimcha tavsiya etiladigan sozlamalar (CSRF bilan birga)
+CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_SAMESITE = 'None'      # localhostda kerak bo'lishi mumkin
+CSRF_COOKIE_SECURE = False         # development uchun (HTTPS emas)
+
 # ============================================================
 # SECURITY CONFIGURATION (Development)
 # ============================================================
 if DEBUG:
     # Development uchun yengil security
-    SECURE_SSL_REDIRECT = False
+
+    # Production uchun qattiq security
+    SECURE_SSL_REDIRECT = False  # True dan False ga o'zgartiring
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
@@ -505,3 +551,15 @@ SWAGGER_SETTINGS = {
 APPEND_SLASH = True
 USE_X_FORWARDED_HOST = False
 USE_X_FORWARDED_PORT = False
+
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}

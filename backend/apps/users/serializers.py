@@ -168,41 +168,63 @@ class StudentLoginSerializer(serializers.Serializer):
         raise serializers.ValidationError(_("Telefon raqami va parol majburiy."))
 
 
+# TeacherLoginSerializer ni quyidagicha almashtiring:
+
 class TeacherLoginSerializer(serializers.Serializer):
     """ O'qituvchilar uchun kirish (Username/Email va Parol) """
     username = serializers.CharField(required=True)
     password = serializers.CharField(write_only=True, required=True)
 
     def validate(self, data):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         username = data.get('username')
         password = data.get('password')
         user = None
 
         if username and password:
-            # 1. Username/Password orqali autentifikatsiya
-            user = authenticate(username=username, password=password)
-
-            # 2. Agar username orqali topilmasa, email orqali tekshirish
-            if not user and '@' in username:
-                try:
-                    target_user = User.objects.get(email=username)
-                    user = authenticate(username=target_user.username, password=password)
-                except User.DoesNotExist:
-                    pass
-
-            if not user:
-                raise serializers.ValidationError({"detail": _("Username/Email yoki parol noto'g'ri.")})
-
+            logger.info(f"🔐 Login attempt for: {username}")
+            
+            # 1. Avval user mavjudligini tekshirish
+            try:
+                user = User.objects.get(username=username)
+                logger.info(f"✅ User topildi: {user.username} (role: {user.role})")
+            except User.DoesNotExist:
+                # Email orqali tekshirish
+                if '@' in username:
+                    try:
+                        user = User.objects.get(email=username)
+                        logger.info(f"✅ User email orqali topildi: {user.username}")
+                    except User.DoesNotExist:
+                        logger.error(f"❌ User topilmadi: {username}")
+                        raise serializers.ValidationError(_("Username/Email yoki parol noto'g'ri."))
+                else:
+                    logger.error(f"❌ User topilmadi: {username}")
+                    raise serializers.ValidationError(_("Username/Email yoki parol noto'g'ri."))
+            
+            # 2. Parol tekshirish
+            if not user.check_password(password):
+                logger.error(f"❌ Noto'g'ri parol: {username}")
+                raise serializers.ValidationError(_("Username/Email yoki parol noto'g'ri."))
+            
+            logger.info(f"✅ Parol to'g'ri: {username}")
+            
             # 3. Rolni tekshirish
-            if user.role != 'teacher' and user.role != 'admin':
-                raise serializers.ValidationError({"detail": _("Bu kirish faqat O'qituvchilar va Adminlar uchun.")})
-
+            if user.role not in ['teacher', 'admin']:
+                logger.error(f"❌ Noto'g'ri rol: {user.role}")
+                raise serializers.ValidationError(_("Bu kirish faqat O'qituvchilar va Adminlar uchun."))
+            
+            # 4. Faollikni tekshirish
             if not user.is_active:
-                raise serializers.ValidationError({"detail": _("Foydalanuvchi hisobi faol emas.")})
-
+                logger.error(f"❌ User faol emas: {username}")
+                raise serializers.ValidationError(_("Foydalanuvchi hisobi faol emas."))
+            
+            logger.info(f"✅ Login muvaffaqiyatli: {username}")
             data['user'] = user
             return data
-        raise serializers.ValidationError({"detail": _("Username/Email va parol majburiy.")})
+            
+        raise serializers.ValidationError(_("Username/Email va parol majburiy."))
 
 
 class LoginResponseUserSerializer(serializers.ModelSerializer):
