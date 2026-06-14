@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
 const saveAuthData = (data) => {
@@ -80,7 +80,7 @@ export default function Login() {
     console.log("🚀 Login so'rovi:", { endpoint, dataToSubmit }); // Debug
 
     try {
-      const res = await axios.post(endpoint, dataToSubmit);
+      const res = await axiosInstance.post(endpoint, dataToSubmit);
       console.log("✅ Login muvaffaqiyatli:", res.data); // Debug
       
       const role = saveAuthData(res.data);
