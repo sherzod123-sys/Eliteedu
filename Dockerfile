@@ -42,6 +42,10 @@ COPY --from=frontend-build /frontend/build /app/frontend/build
 RUN mkdir -p /app/staticfiles /app/media /app/logs && \
     chmod -R 755 /app/staticfiles /app/media /app/logs
 
+# Frontend static fayllarini staticfiles'ga ko'chirish
+RUN mkdir -p /app/staticfiles && \
+    cp -r /app/frontend/build/static/* /app/staticfiles/ 2>/dev/null || true
+
 RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
