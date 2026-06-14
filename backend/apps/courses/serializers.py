@@ -112,12 +112,22 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
-    course = serializers.StringRelatedField()
+    course = serializers.SerializerMethodField()
     user = UserSerializer(read_only=True)
 
     class Meta:
         model = Enrollment
         fields = '__all__'
+
+    def get_course(self, obj):
+        if obj.course:
+            return {
+                'id': obj.course.id,
+                'title': obj.course.title,
+                'thumbnail': obj.course.thumbnail.url if obj.course.thumbnail else None,
+                'slug': obj.course.slug if hasattr(obj.course, 'slug') else '',
+            }
+        return None
 
 
 # ------------------------------------------------------------------
