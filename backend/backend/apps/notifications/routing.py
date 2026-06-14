@@ -3,5 +3,5 @@ from . import consumers
 
 websocket_urlpatterns = [
     path('ws/notifications/', consumers.NotificationConsumer.as_asgi()),
-    path('ws/chat/<int:course_id>/', consumers.ChatConsumer.as_asgi()),
+    # ws/chat/ ni bu yerdan O'CHIRING — u chat/routing.py da bor
 ]

@@ -25,7 +25,7 @@ export default function Navbar() {
     const fetchCourses = async () => {
       try {
         setLoadingCourses(true);
-        const res = await fetch('http://127.0.0.1:8000/api/courses/');
+        const res = await fetch('/api/courses/');
         if (!res.ok) throw new Error('Kurslar yuklanmadi');
         const data = await res.json();
         setCourses(Array.isArray(data) ? data : []);

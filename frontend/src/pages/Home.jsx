@@ -6,7 +6,7 @@ import {
   BookOpen, Play, Star, ArrowRight, ChevronLeft, ChevronRight, CheckCircle,
 } from 'lucide-react';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = '';
 
 // ─── Static data hoisted outside component ────────────────────────────────────
 const SLIDES = [

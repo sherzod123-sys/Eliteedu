@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { BookOpen, Search, Filter, Users, ArrowLeft } from 'lucide-react';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = '';
 
 export default function Courses() {
   const [courses, setCourses] = useState([]);

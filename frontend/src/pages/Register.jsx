@@ -49,7 +49,7 @@ export default function Home() {
         const token = localStorage.getItem('access_token');
         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
-        const res = await axios.get("http://127.0.0.1:8000/api/courses/", config);
+        const res = await axios.get("/api/courses/", config);
         
         let coursesList = res.data.results || 
                          (Array.isArray(res.data) ? res.data : []) || 

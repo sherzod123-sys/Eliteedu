@@ -10,7 +10,7 @@ export default function Courses() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/courses/');
+        const res = await fetch('/api/courses/');
         
         if (!res.ok) {
           throw new Error(`HTTP xato: ${res.status}`);

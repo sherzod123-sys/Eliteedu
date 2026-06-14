@@ -24,7 +24,7 @@ export default function BlogDetail() {
     const fetchPost = async () => {
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await axios.get(`http://localhost:8000/api/blog/${slug}/`, { headers });
+        const response = await axios.get(`/api/blog/${slug}/`, { headers });
         
         setPost(response.data);
         setLikesCount(response.data.likes_count || 0);
@@ -49,7 +49,7 @@ export default function BlogDetail() {
 
     try {
       await axios.post(
-        `http://localhost:8000/api/blog/${slug}/reaction/`,
+        `/api/blog/${slug}/reaction/`,
         { reaction: type },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -95,7 +95,7 @@ export default function BlogDetail() {
 
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/blog/${slug}/comments/`,
+        `/api/blog/${slug}/comments/`,
         { content: newComment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -140,7 +140,7 @@ export default function BlogDetail() {
   }
 
   const imageUrl = post.featured_image 
-    ? (post.featured_image.startsWith('http') ? post.featured_image : `http://localhost:8000${post.featured_image}`)
+    ? (post.featured_image.startsWith('http') ? post.featured_image : `${post.featured_image}`)
     : 'https://via.placeholder.com/1200x600?text=No+Image';
 
   const authorFullName = post.author_full_name || post.author?.username || 'Noma\'lum muallif';

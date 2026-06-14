@@ -58,7 +58,7 @@ export default function Login() {
             password: studentData.password 
         };
         // ✅ TUZATILGAN: auth/ qo'shildi
-        endpoint = 'http://127.0.0.1:8000/api/users/auth/student-login/';
+        endpoint = '/api/users/auth/student-login/';
 
     } else { // teacher
         if (!teacherData.username.trim()) {
@@ -74,7 +74,7 @@ export default function Login() {
             username: teacherData.username, 
             password: teacherData.password 
         };
-        endpoint = 'http://127.0.0.1:8000/api/users/auth/teacher-login/';
+        endpoint = '/api/users/auth/teacher-login/';
     }
 
     console.log("🚀 Login so'rovi:", { endpoint, dataToSubmit }); // Debug

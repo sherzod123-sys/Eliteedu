@@ -17,7 +17,7 @@ export default function Blog() {
     const fetchPosts = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await axios.get('http://localhost:8000/api/blog/', {
+        const response = await axios.get('/api/blog/', {
           headers: {
             Authorization: `Bearer ${token}`
           }

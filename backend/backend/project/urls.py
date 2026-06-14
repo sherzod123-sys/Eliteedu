@@ -72,4 +72,5 @@ if settings.DEBUG:
     # Development'da frontend route'lari uchun
     urlpatterns += [
         path('<path:path>', TemplateView.as_view(template_name='index.html')),
+        
     ]

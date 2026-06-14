@@ -1,4 +1,4 @@
-// src/pages/Login.jsx — 100% TUZATILGAN VERSIYA (endpoint to'g'rilandi, debug qo'shildi, error handling yaxshilandi)
+// src/pages/Login.jsx — 100% TUZATILGAN
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +10,7 @@ const saveAuthData = (data) => {
     localStorage.setItem('refresh_token', data.refresh || '');
     const userInfo = data.user || data;
     localStorage.setItem('user', JSON.stringify(userInfo));
-    console.log("TOKEN SAQLANDI:", data.access.substring(0, 20) + "...");  // Debug uchun qo'shildi
+    console.log("✅ TOKEN SAQLANDI:", data.access.substring(0, 20) + "...");
     return userInfo.role || 'student';
 };
 
@@ -57,7 +57,8 @@ export default function Login() {
             phone: studentData.phone, 
             password: studentData.password 
         };
-        endpoint = 'http://127.0.0.1:8000/api/users/student-login/';  // ← 100% TUZATILGAN: to'g'ri endpoint
+        // ✅ TUZATILGAN: auth/ qo'shildi
+        endpoint = 'http://127.0.0.1:8000/api/users/auth/student-login/';
 
     } else { // teacher
         if (!teacherData.username.trim()) {
@@ -76,8 +77,12 @@ export default function Login() {
         endpoint = 'http://127.0.0.1:8000/api/users/auth/teacher-login/';
     }
 
+    console.log("🚀 Login so'rovi:", { endpoint, dataToSubmit }); // Debug
+
     try {
       const res = await axios.post(endpoint, dataToSubmit);
+      console.log("✅ Login muvaffaqiyatli:", res.data); // Debug
+      
       const role = saveAuthData(res.data);
       const fullName = res.data.user?.full_name || 
                        res.data.user?.username || 
@@ -85,18 +90,18 @@ export default function Login() {
 
       toast.success(`Xush kelibsiz, ${fullName}! 👋`);
 
-      // Dashboardga yo‘naltirish
+      // Dashboardga yo'naltirish
       if (role === 'teacher' || role === 'admin') {
           navigate('/teacher/dashboard');
       } else {
           navigate('/dashboard');
       }
 
-      // MUHIM: Sahifani majburiy yangilash — dashboard to‘g‘ri ochilishi uchun
-      window.location.reload();
+      // Sahifani yangilash
+      setTimeout(() => window.location.reload(), 100);
 
     } catch (err) {
-      console.error("Login xatosi:", err.response?.data);
+      console.error("❌ Login xatosi:", err.response?.data || err.message);
 
       let errorMsg = 'Tizimga kirishda xato yuz berdi';
       
@@ -108,8 +113,12 @@ export default function Login() {
           } else if (err.response.data.non_field_errors) {
               errorMsg = err.response.data.non_field_errors[0];
           } else {
-              errorMsg = userType === 'teacher' ? 'Noto\'g\'ri username yoki parol' : 'Noto\'g\'ri telefon yoki parol';
+              errorMsg = userType === 'teacher' 
+                  ? 'Noto\'g\'ri username yoki parol' 
+                  : 'Noto\'g\'ri telefon yoki parol';
           }
+      } else if (err.request) {
+          errorMsg = 'Server bilan bog\'lanib bo\'lmadi';
       }
 
       toast.error(errorMsg);

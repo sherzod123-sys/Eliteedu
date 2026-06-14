@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 
 // ─── CONFIG ───────────────────────────────────────────────
-const WS_BASE = 'ws://127.0.0.1:8000/ws/chat';
-const WS_HOST = '127.0.0.1:8000';
+const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/chat';
+const WS_HOST = window.location.host;
 
 api.interceptors.request.use(cfg => {
   const t = localStorage.getItem('access_token');
@@ -45,7 +45,7 @@ const getYouTubeEmbedUrl = url => {
 const fixAvatarUrl = url => {
   if (!url) return null;
   if (url.startsWith('http')) return url;
-  if (url.startsWith('/')) return `http://127.0.0.1:8000${url}`;
+  if (url.startsWith('/')) return `${url}`;
   return url;
 };
 

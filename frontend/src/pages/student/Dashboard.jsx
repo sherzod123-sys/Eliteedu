@@ -76,7 +76,7 @@ export default function Dashboard() {
         const token = localStorage.getItem('access_token');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const res = await axios.get('http://127.0.0.1:8000/api/courses/my_courses/', { headers });
+        const res = await axios.get('/api/courses/my_courses/', { headers });
         const myCourses = res.data.results || res.data || [];
 
         setCourses(myCourses);

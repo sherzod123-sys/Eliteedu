@@ -22,7 +22,7 @@ export default function LearnPage() {
     }
 
     // Kurs dasturini yuklash
-    fetch(`http://127.0.0.1:8000/api/courses/${courseId}/curriculum/`, {
+    fetch(`/api/courses/${courseId}/curriculum/`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => {
@@ -49,7 +49,7 @@ export default function LearnPage() {
 
   useEffect(() => {
     if (selectedLesson) {
-      fetch(`http://127.0.0.1:8000/api/lessons/${selectedLesson}/`, {
+      fetch(`/api/lessons/${selectedLesson}/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(res => res.json())
@@ -63,7 +63,7 @@ export default function LearnPage() {
   };
 
   const completeLesson = () => {
-    fetch(`http://127.0.0.1:8000/api/lessons/${selectedLesson}/complete/`, {
+    fetch(`/api/lessons/${selectedLesson}/complete/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -8,7 +8,7 @@
  */
 
 class ChatWebSocket {
-    constructor({ roomId, token, onEvent, siteUrl = 'http://127.0.0.1:8000' }) {
+    constructor({ roomId, token, onEvent, siteUrl = '' }) {
       this.roomId   = roomId;
       this.token    = token;
       this.onEvent  = onEvent;  // callback: (type, data) => void
@@ -244,7 +244,7 @@ class ChatWebSocket {
   const chat = new ChatWebSocket({
     roomId:  42,
     token:   'eyJhbGciOi...', // JWT access token
-    siteUrl: 'http://127.0.0.1:8000',
+    siteUrl: '',
   
     onEvent: (type, data) => {
       switch (type) {
