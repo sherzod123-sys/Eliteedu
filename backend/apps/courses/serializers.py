@@ -112,7 +112,7 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
-    course = CourseListSerializer(read_only=True)
+    course = serializers.StringRelatedField()
     user = UserSerializer(read_only=True)
 
     class Meta:
