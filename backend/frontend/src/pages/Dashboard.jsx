@@ -1198,24 +1198,22 @@ function LMSContent() {
         });
       }
 
-      // ── YO'L 3: Har bir kurs uchun alohida so'rov ────
-      // if (builtMods.length === 0 && courseList.length > 0) {
-      //   const modRequests = courseList.map(c =>
-      //     api.get(`/courses/${c.id}/modules/`).catch(() => null)
-      //   );
-      //   const modResults = await Promise.allSettled(modRequests);
-      //   modResults.forEach((r, i) => {
-      //     if (r.status !== 'fulfilled' || !r.value?.data) return;
-      //     const raw = r.value.data;
-      //     const mods = Array.isArray(raw) ? raw
-      //       : Array.isArray(raw?.results) ? raw.results
-      //       : Array.isArray(raw?.modules) ? raw.modules : [];
-      //     mods.forEach(mod => {
-      //       if (!mod) return;
-      //       builtMods.push(buildModule(mod, courseList[i]));
-      //     });
-      //   });
-      // }
+     // ── YO'L 3: Har bir kurs uchun alohida so'rov ────
+if (builtMods.length === 0 && courseList.length > 0) {
+  const modRequests = courseList.map(c =>
+    api.get(`/courses/${c.id}/`).catch(() => null)
+  );
+  const modResults = await Promise.allSettled(modRequests);
+  modResults.forEach((r, i) => {
+    if (r.status !== 'fulfilled' || !r.value?.data) return;
+    const raw = r.value.data;
+    const mods = Array.isArray(raw.modules) ? raw.modules : [];
+    mods.forEach(mod => {
+      if (!mod) return;
+      builtMods.push(buildModule(mod, courseList[i]));
+    });
+  });
+}
 
       // Modullarni order bo'yicha tartiblash
       builtMods.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
