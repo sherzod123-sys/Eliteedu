@@ -117,7 +117,7 @@ class RegisterView(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"❌ Unexpected error: {str(e)}")
             return Response(
-                {'error': 'Serverda xatolik yuz berdi'},
+                {'error': f'{type(e).__name__}: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

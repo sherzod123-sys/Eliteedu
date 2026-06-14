@@ -117,7 +117,7 @@ class RegisterView(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"❌ Unexpected error: {str(e)}")
             return Response(
-                {'error': 'Serverda xatolik yuz berdi'},
+                {'error': f'Serverda xatolik: {str(e)} | {type(e).__name__}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -342,7 +342,7 @@ class TeacherLoginView(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"❌ Unexpected error: {str(e)}")
             return Response(
-                {'error': 'Serverda xatolik yuz berdi'},
+                {'error': f'Serverda xatolik: {str(e)} | {type(e).__name__}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -407,7 +407,7 @@ class StudentLoginView(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"❌ Unexpected error: {str(e)}")
             return Response(
-                {'error': 'Serverda xatolik yuz berdi'},
+                {'error': f'Serverda xatolik: {str(e)} | {type(e).__name__}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
