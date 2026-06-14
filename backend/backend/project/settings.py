@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third party apps
     'rest_framework',
     'rest_framework.authtoken',  # Token authentication uchun
@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_yasg',
     'django_filters',
-    
+
     # Local apps
     'apps.users',
     'apps.courses',
@@ -47,9 +47,6 @@ INSTALLED_APPS = [
     'apps.analytics',
     'apps.chat',
     # 'apps.admin_app',
-    
-    
-
 ]
 
 ASGI_APPLICATION = 'project.asgi.application'
@@ -57,7 +54,7 @@ ASGI_APPLICATION = 'project.asgi.application'
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # shu qator qo'shildi
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,10 +68,7 @@ ROOT_URLCONF = 'project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            BASE_DIR / 'templates',
-            BASE_DIR / 'frontend' / 'build',
-        ],
+        'DIRS': [BASE_DIR / 'frontend' / 'build', BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -142,7 +136,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-# STATICFILES_DIRS = []
 
 # Media files
 MEDIA_URL = '/media/'
@@ -154,9 +147,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
 
-# ============================================================
-# DRF (Django REST Framework) CONFIGURATION
-# ============================================================
 # ============================================================
 # DRF (Django REST Framework) CONFIGURATION
 # ============================================================
@@ -194,23 +184,23 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': False,
-    
+
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
-    
+
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
-    
+
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
-    
+
     'JTI_CLAIM': 'jti',
-    
+
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
@@ -264,7 +254,6 @@ CORS_EXPOSE_HEADERS = [
 # CSRF (Cross-Site Request Forgery) CONFIGURATION
 # ============================================================
 
-# API endpoint'lar uchun CSRF tekshiruvini o'tkazib yuborish
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -281,8 +270,6 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = False  # Development uchun, production'da True bo'lishi kerak
 CSRF_USE_SESSIONS = False
 
-# API endpoint'larni CSRF'dan exempt qilish
-# Bu Django'ga /api/ bilan boshlanadigan barcha URL'larni CSRF'dan exempt qilishni aytadi
 CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 
 # ============================================================
@@ -297,27 +284,11 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-# settings.py
-
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:8000',     # backend ham qo'shish yaxshi
-]
-
-# Qo'shimcha tavsiya etiladigan sozlamalar (CSRF bilan birga)
-CORS_ALLOW_CREDENTIALS = True
-CSRF_COOKIE_SAMESITE = 'None'      # localhostda kerak bo'lishi mumkin
-CSRF_COOKIE_SECURE = False         # development uchun (HTTPS emas)
-
 # ============================================================
-# SECURITY CONFIGURATION (Development)
+# SECURITY CONFIGURATION
 # ============================================================
 if DEBUG:
-    # Development uchun yengil security
-
-    # Production uchun qattiq security
-    SECURE_SSL_REDIRECT = False  # True dan False ga o'zgartiring
+    SECURE_SSL_REDIRECT = False
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
@@ -325,7 +296,6 @@ if DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'SAMEORIGIN'
 else:
-    # Production uchun qattiq security
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000  # 1 yil
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -353,34 +323,34 @@ JAZZMIN_SETTINGS = {
     "copyright": "EduPlatform 2025",
     "search_model": ["auth.User", "blog.BlogPost"],
     "user_avatar": None,
-    
+
     "topmenu_links": [
         {"name": "Bosh sahifa", "url": "admin:index", "permissions": ["auth.view_user"]},
         {"name": "Frontend", "url": "http://localhost:3000", "new_window": True},
         {"model": "auth.User"},
         {"app": "blog"},
     ],
-    
+
     "usermenu_links": [
         {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
         {"model": "auth.user"}
     ],
-    
+
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": [],
     "hide_models": [],
     "order_with_respect_to": ["auth", "blog", "courses", "users"],
-    
+
     "custom_links": {
         "blog": [{
-            "name": "Yangi maqola", 
-            "url": "/admin/blog/blogpost/add/", 
+            "name": "Yangi maqola",
+            "url": "/admin/blog/blogpost/add/",
             "icon": "fas fa-plus",
             "permissions": ["blog.add_blogpost"]
         }]
     },
-    
+
     "icons": {
         "auth": "fas fa-users-cog",
         "auth.user": "fas fa-user",
@@ -396,7 +366,7 @@ JAZZMIN_SETTINGS = {
         "notifications.Notification": "fas fa-bell",
         "analytics.PageView": "fas fa-chart-line",
     },
-    
+
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",
     "related_modal_active": True,
@@ -490,7 +460,7 @@ LOGGING = {
 }
 
 # ============================================================
-# EMAIL CONFIGURATION (Development)
+# EMAIL CONFIGURATION
 # ============================================================
 if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -538,7 +508,7 @@ SWAGGER_SETTINGS = {
             'in': 'header'
         }
     },
-    'USE_SESSION_AUTH': False,  # API uchun session auth o'chirildi
+    'USE_SESSION_AUTH': False,
     'JSON_EDITOR': True,
     'DOC_EXPANSION': 'none',
     'APIS_SORTER': 'alpha',
@@ -552,9 +522,8 @@ APPEND_SLASH = True
 USE_X_FORWARDED_HOST = False
 USE_X_FORWARDED_PORT = False
 
-
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
